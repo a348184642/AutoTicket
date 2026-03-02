@@ -1,0 +1,14 @@
+[
+    {
+        "login_name": "第一个账号的user_id",
+        "user_id": "第一个账号的user_id",
+        "ses_id": "第一个账号的ses_id",
+        "exchange_id": "10"
+    },
+    {
+        "login_name": "第二个账号的user_id",
+        "user_id": "第二个账号的user_id",
+        "ses_id": "第二个账号的ses_id",
+        "exchange_id": "10"
+    }
+]
