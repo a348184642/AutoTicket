@@ -2,6 +2,8 @@
 ![项目图片](https://socialify.git.ci/BAOfanTing/AutoTicket/image?custom_description=%E6%9D%AD%E5%B7%A5e%E5%AE%B6app%E9%80%86%E5%90%91%E5%AD%A6%E4%B9%A0&description=1&font=Inter&forks=1&language=1&name=1&owner=1&pattern=Plus&stargazers=1&theme=Dark)
 
 ## 更新日志
+### V0.1 2026.03.02
+二次开发，增加了多账号功能
 
 ### V1.0.6 2026.02.13
     python版本增加每日任务一键运行
