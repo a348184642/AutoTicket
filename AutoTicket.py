@@ -8,15 +8,16 @@ from datetime import datetime
 import threading
 import urllib3
 import concurrent.futures
+from functools import partial  # 新增：用于传递多参数
 
-# ================= 全局配置 =================
+# ================= 全局配置（已优化）=================
 CHANNEL = "02"
 APP_VER_NO = "3.1.6"
 RUN_TIME = datetime(2025, 9, 9, 17, 00, 0, 300000)
 RUN_COUNT = 1
-TIME_SLEEP = 1
-MAX_WORKERS = 1
-REQUEST_TIMEOUT = 10
+TIME_SLEEP = 0.2  # 优化：请求间隔从1秒改为0.2秒（更紧凑但不频繁）
+MAX_WORKERS = None  # 优化：设为None自动使用账号数量作为线程数（并行执行）
+REQUEST_TIMEOUT = (15, 30)  # 优化：分离超时（连接15秒，读取30秒）
 config_file = "./accounts.json"
 STOP_FLAG = False  # 【核心】全局停止标志
 
@@ -248,37 +249,52 @@ def create_account_session():
     session.verify = False
     return session
 
-# ================= 单账号任务 =================
-def run_exchange(account):
+# ================= 单账号任务（已优化：增加重试机制）=================
+def run_exchange_with_retry(account, max_retries=3):
+    """带重试的单账号兑换函数（优化版）"""
     global STOP_FLAG
     session = create_account_session()
     account_id = account["login_name"][:8]
     try:
-        for i in range(RUN_COUNT):
+        for attempt in range(max_retries):
             if STOP_FLAG:
                 print(f"[{account_id}] 收到停止信号")
                 break
             try:
-                payload = build_payload(account)
-                resp = session.post(
-                    BASE_URL + ENDPOINTS['exchange'],
-                    json=payload,
-                    timeout=REQUEST_TIMEOUT
-                )
-                resp_json = resp.json()
-                if "data2" in resp_json:
-                    decrypted = decrypt_data2(resp_json["data2"])
-                    print(f"[{account_id}] 第{i+1}次兑换: {decrypted}")
-                else:
-                    print(f"[{account_id}] 第{i+1}次兑换: {resp_json}")
-                time.sleep(TIME_SLEEP)
+                for i in range(RUN_COUNT):
+                    if STOP_FLAG:
+                        break
+                    payload = build_payload(account)
+                    resp = session.post(
+                        BASE_URL + ENDPOINTS['exchange'],
+                        json=payload,
+                        timeout=REQUEST_TIMEOUT  # 优化：使用分离的超时配置
+                    )
+                    resp_json = resp.json()
+                    if "data2" in resp_json:
+                        decrypted = decrypt_data2(resp_json["data2"])
+                        print(f"[{account_id}] 第{attempt+1}轮第{i+1}次兑换: {decrypted}")
+                        # 优化：如果返回成功（假设result=0），直接退出
+                        if "result" in decrypted and json.loads(decrypted).get("result") == "0":
+                            print(f"🎉 [{account_id}] 兑换成功！")
+                            return
+                    else:
+                        print(f"[{account_id}] 第{attempt+1}轮第{i+1}次兑换: {resp_json}")
+                    time.sleep(TIME_SLEEP)
             except Exception as e:
-                print(f"[{account_id}] 第{i+1}次兑换失败: {e}")
+                print(f"[{account_id}] 第{attempt+1}轮兑换失败: {e}")
+                if attempt < max_retries - 1:
+                    print(f"[{account_id}] 等待0.1秒后重试...")
+                    time.sleep(0.1)
                 continue
     except Exception as e:
         print(f"[{account_id}] 兑换任务异常: {e}")
     finally:
         session.close()
+
+def run_exchange(account):
+    """保留原函数名，内部调用带重试的函数"""
+    run_exchange_with_retry(account)
 
 def daily_task_workflow(account):
     session = create_account_session()
@@ -333,7 +349,7 @@ def daily_task_workflow(account):
     finally:
         session.close()
 
-# ================= 多账号调度 =================
+# ================= 多账号调度（已优化：并行执行）=================
 def load_accounts():
     global config_file
     try:
@@ -385,12 +401,17 @@ def wait_until_target():
         print(f"⏳ 剩余 {diff:.2f} 秒")
 
 def run_multi_account_exchange():
-    global STOP_FLAG
+    global STOP_FLAG, MAX_WORKERS
     STOP_FLAG = False
     
     accounts = load_accounts()
     if not accounts:
         return
+    
+    # 优化：自动设置线程数为账号数量（并行执行）
+    if MAX_WORKERS is None or MAX_WORKERS <= 0:
+        MAX_WORKERS = len(accounts)
+    print(f"🚀 配置并行线程数: {MAX_WORKERS}")
         
     wait_until_target()
     
@@ -398,7 +419,7 @@ def run_multi_account_exchange():
         print("⏹️ 任务已取消")
         return
 
-    print("\n🚀 开始多账号兑换任务")
+    print("\n🚀 开始多账号兑换任务（并行执行）")
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = [executor.submit(run_exchange, account) for account in accounts]
         for future in concurrent.futures.as_completed(futures):
@@ -409,12 +430,16 @@ def run_multi_account_exchange():
     print("\n🏁 所有账号兑换任务完成")
 
 def run_multi_account_daily_task():
-    global STOP_FLAG
+    global STOP_FLAG, MAX_WORKERS
     STOP_FLAG = False
     
     accounts = load_accounts()
     if not accounts:
         return
+    
+    # 优化：每日任务也支持并行（可选，默认2个线程避免频繁）
+    if MAX_WORKERS is None or MAX_WORKERS <= 0:
+        MAX_WORKERS = min(2, len(accounts))
         
     print("\n🚀 开始多账号每日任务")
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
