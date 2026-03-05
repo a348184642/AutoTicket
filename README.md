@@ -1,12 +1,12 @@
 # 杭工e家自动化脚本项目
-![项目图片](https://socialify.git.ci/BAOfanTing/AutoTicket/image?custom_description=%E6%9D%AD%E5%B7%A5e%E5%AE%B6app%E9%80%86%E5%90%91%E5%AD%A6%E4%B9%A0&description=1&font=Inter&forks=1&language=1&name=1&owner=1&pattern=Plus&stargazers=1&theme=Dark)
+
 
 ## 更新日志
 ### V1 2026.03.05
 修改了无法同时抢券的BUG，仅针对于python版本，JS版本无修改。
 ### V0.1 2026.03.02
 二次开发，增加了多账号功能（仅修改了python版本，未修改JavaScript版本）
-在accounts.json中修改账号信息，账号信息还是原来的方式获取。没有可以自行创建，格式参照项目里的。
+在accounts.json中修改账号信息，账号信息还是原来的方式获取。没有可以自行创建，格式参照项目里的。原作者项目：https://github.com/BAOfanTing/AutoTicket
 
 
 ### V1.0.6 2026.02.13
